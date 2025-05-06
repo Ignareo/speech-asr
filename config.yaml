@@ -1,0 +1,11 @@
+SenseVoice_path: D:\Programming\Model\SenseVoiceSmall
+Paraformer_path: D:\Programming\Model\modelscope\models\iic\speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+vad_model_path: D:\Programming\Model\modelscope\models\iic\speech_fsmn_vad_zh-cn-16k-common-pytorch
+punc_model_path: D:\Programming\Model\modelscope\models\iic\punc_ct-transformer_cn-en-common-vocab471067-large
+spk_model_path: D:\Programming\Model\modelscope\models\iic\speech_campplus_sv_zh-cn_16k-common
+device: cpu
+disable_update: true
+
+# Whisper_path: D:\Programming\SelfProgram\speech-asr\Whisper-large-v3-turbo
+# 没用，没法获得时间戳
+# paraformer_path_2: D:\Programming\Model_Store\paraformer-zh
