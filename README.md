@@ -2,6 +2,10 @@
 
 > 本项目基于 [FunASR](https://github.com/modelscope/FunASR) 和 [SenseVoiceSmall](https://github.com/FunAudioLLM/SenseVoice) 模型，提供多语言、高精度、低延迟的语音识别服务。支持命令行和 Web UI 两种使用方式。
 
+2025.5.6完成初版
+
+后续改进：联用SenseVoice和Paraformer
+
 ---
 
 ## 📁 项目结构
