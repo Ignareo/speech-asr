@@ -3,19 +3,11 @@
 > 本项目基于 [FunASR](https://github.com/modelscope/FunASR) 和 [SenseVoiceSmall](https://github.com/FunAudioLLM/SenseVoice) 模型，提供多语言、高精度、低延迟的语音识别服务。支持命令行和 Web UI 两种使用方式。
 
 2025.5.6完成初版
+2025.5.7新增SenseVoice和Paraformer联用功能
 
 后续改进：
-- 联用SenseVoice和Paraformer
-
-```bash
-I want to add a manipulation to uss SenseVoiceSmall and Paraformer together, then output them into the same txt, with the format:
-
-========SenseVoiceSmall==========
-<SenseVoiceSmall Output>
-
-===========Paraformer==============
-<Paraformer Output>
-```
+- 优化联用模式下的处理速度
+- 添加更多模型对比数据
 
 
 ---
@@ -52,10 +44,13 @@ speech-asr/
 
 ### 对比
 
-请生成一个markdown格式的表格，对比三个模型的用时
-音频为210秒，
-SenseVoiceSmall用时14秒
+以下是不同模型的性能对比（音频长度：210秒/3分30秒）：
 
+| 模型 | 处理时间 | 特点 |
+|------|----------|------|
+| SenseVoiceSmall | 14秒 | 速度快，支持情感识别和事件检测 |
+| Paraformer | - | 支持时间戳，适合长音频 |
+| SenseVoiceSmall+Paraformer（联用） | 113.52秒 | 综合两种模型优势，输出更全面 |
 
 ### SenseVoiceSmall
 
@@ -86,6 +81,7 @@ Whisper-large-v3-turbo（1.5GB），包含约15亿参数
 ```bash
 python main.py --input example/zh.mp3 --lang zh
 python main.py --input example/ --lang auto
+python main.py --input example/zh.mp3 --model Both  # 同时使用SenseVoiceSmall和Paraformer
 ```
 
 | 参数           | 描述                                      |
@@ -93,8 +89,11 @@ python main.py --input example/ --lang auto
 | `--input`      | 音频文件或目录路径                        |
 | `--output_dir` | 输出文本文件保存目录（默认为当前目录）    |
 | `--lang`       | 语言选择（auto/zh/en/yue/ja/ko/nospeech） |
+| `--model`      | 模型类型（SenseVoice/Paraformer/Both）    |
 
-识别结果会自动保存为 `.txt` 文件，文件名格式为：`原始文件名.txt`
+识别结果会自动保存为 `.txt` 文件，文件名格式为：
+- 单模型：`原始文件名_模型名称.txt`
+- 双模型：`原始文件名_SenseVoiceSmall+Paraformer.txt`（包含两个模型的识别结果）
 
 ---
 

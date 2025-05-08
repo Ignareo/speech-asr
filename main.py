@@ -5,7 +5,7 @@
 INPUT_PATH = ""                # 默认输入路径
 OUTPUT_DIR = ""                             # 输出目录（默认为当前目录）
 LANGUAGE = "auto"                           # 默认语言
-MODEL_TYPE = "SenseVoice"                   # 模型类型 (SenseVoice/Paraformer)
+MODEL_TYPE = "Both"                   # 模型类型 (SenseVoice/Paraformer/Both)
 # ===================================================
 
 import os
@@ -55,10 +55,10 @@ def print_config_summary(input_path, output_dir, language, model_type, time_form
     # 格式化选项
     format_options = []
     
-    if time_format and model_type == "Paraformer":
+    if time_format and (model_type == "Paraformer" or model_type == "Both"):
         format_options.append(f"时间格式: {time_format}")
     
-    if rich is not None and model_type == "SenseVoice":
+    if rich is not None and (model_type == "SenseVoice" or model_type == "Both"):
         format_options.append(f"富文本: {'是' if rich else '否'}")
     
     if use_postprocess:
@@ -84,7 +84,7 @@ def process_audio_files(asr, audio_files, output_dir=None, language="auto", time
     对于每个音频文件，执行推理，并保存结果到txt文件
 
     Args:
-        asr: ASREngine 实例
+        asr: ASREngine 实例或包含两个模型的字典 {"SenseVoice": asr1, "Paraformer": asr2}
         audio_files: 音频文件列表
         output_dir: 输出目录
         language: 语言代码
@@ -119,24 +119,43 @@ def process_audio_files(asr, audio_files, output_dir=None, language="auto", time
                 "disable_pbar": quiet  # 传递参数以禁用或启用FunASR的进度条
             }
             
-            # 执行推理
-            result = asr.run_model(audio, **run_options)
-            
-            output_path = get_output_path(audio, output_dir)
-            
-            # 选择后处理方法
-            if use_postprocess:
-                # 使用自动选择的后处理方法
-                text = asr.postprocess(result, time_format=time_format, rich=rich)
-            else:
-                # 根据模型类型手动选择后处理方法
-                if asr.model_type == "Paraformer":
-                    text = asr.postprocess_Paraformer(result, time_format=time_format)
-                else:  # SenseVoice
-                    text = asr.postprocess_general(result, rich=True if rich is None else rich)
+            # 检查是否使用两个模型
+            if isinstance(asr, dict) and "SenseVoice" in asr and "Paraformer" in asr:
+                # 使用两个模型
+                logging.info(f"{Colors.BOLD}使用SenseVoiceSmall模型处理...{Colors.RESET}")
+                sense_result = asr["SenseVoice"].run_model(audio, **run_options)
+                sense_text = asr["SenseVoice"].postprocess(sense_result, rich=rich) if use_postprocess else asr["SenseVoice"].postprocess_general(sense_result, rich=True if rich is None else rich)
                 
-            save_text_to_file(text, output_path)
-            logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ 已保存到 {output_path}{Colors.RESET}")
+                logging.info(f"{Colors.BOLD}使用Paraformer模型处理...{Colors.RESET}")
+                para_result = asr["Paraformer"].run_model(audio, **run_options)
+                para_text = asr["Paraformer"].postprocess(para_result, time_format=time_format) if use_postprocess else asr["Paraformer"].postprocess_Paraformer(para_result, time_format=time_format)
+                
+                # 合并结果
+                combined_text = "========SenseVoiceSmall==========\n" + sense_text + "\n\n===========Paraformer==============\n" + para_text
+                
+                # 使用基础文件名保存，添加特殊模型标识
+                output_path = get_output_path(audio, output_dir, "SenseVoiceSmall+Paraformer")
+                save_text_to_file(combined_text, output_path)
+                logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ 已保存合并结果到 {output_path}{Colors.RESET}")
+            else:
+                # 使用单个模型
+                result = asr.run_model(audio, **run_options)
+                
+                output_path = get_output_path(audio, output_dir, asr.model_type)
+                
+                # 选择后处理方法
+                if use_postprocess:
+                    # 使用自动选择的后处理方法
+                    text = asr.postprocess(result, time_format=time_format, rich=rich)
+                else:
+                    # 根据模型类型手动选择后处理方法
+                    if asr.model_type == "Paraformer":
+                        text = asr.postprocess_Paraformer(result, time_format=time_format)
+                    else:  # SenseVoice
+                        text = asr.postprocess_general(result, rich=True if rich is None else rich)
+                    
+                save_text_to_file(text, output_path)
+                logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ 已保存到 {output_path}{Colors.RESET}")
             
             # 更新总进度条
             pbar.update(1)
@@ -157,7 +176,7 @@ def main():
     parser.add_argument("--input", type=str, help="音频文件或目录")
     parser.add_argument("--output_dir", type=str, default=None, help="输出目录")
     parser.add_argument("--lang", type=str, default="auto", help="语言 (auto/zh/en/yue/ja/ko)")
-    parser.add_argument("--model", type=str, default=None, help="模型类型 (SenseVoice/Paraformer)")
+    parser.add_argument("--model", type=str, default=None, help="模型类型 (SenseVoice/Paraformer/Both)")
     parser.add_argument("--time_format", type=str, default="sec", choices=["sec", "min"], 
                         help="时间格式 (仅对Paraformer有效)")
     parser.add_argument("--rich", action="store_true", help="使用富文本 (仅对SenseVoice有效)")
@@ -214,18 +233,31 @@ def main():
         return
 
     # ====== 初始化引擎 ======
-    logging.info(f"{Colors.BOLD}正在初始化 {model_type} 模型，请稍候...{Colors.RESET}")
-    
     # 添加静默模式设置
     config["disable_pbar"] = quiet_mode
     
     try:
-        asr = ASREngine(config, model_type=model_type)
+        if model_type.lower() == "both":
+            logging.info(f"{Colors.BOLD}正在初始化 SenseVoice 模型，请稍候...{Colors.RESET}")
+            sense_asr = ASREngine(config, model_type="SenseVoice")
+            logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ SenseVoice 模型初始化完成{Colors.RESET}")
+            
+            logging.info(f"{Colors.BOLD}正在初始化 Paraformer 模型，请稍候...{Colors.RESET}")
+            para_asr = ASREngine(config, model_type="Paraformer")
+            logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ Paraformer 模型初始化完成{Colors.RESET}")
+            
+            # 创建模型字典
+            asr = {
+                "SenseVoice": sense_asr,
+                "Paraformer": para_asr
+            }
+        else:
+            logging.info(f"{Colors.BOLD}正在初始化 {model_type} 模型，请稍候...{Colors.RESET}")
+            asr = ASREngine(config, model_type=model_type)
+            logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ 模型初始化完成{Colors.RESET}")
     except Exception as e:
         logging.error(f"初始化ASR引擎失败: {e}")
         return
-    
-    logging.info(f"{Colors.BOLD}{Colors.GREEN}✅ 模型初始化完成{Colors.RESET}")
     
     # ====== 获取音频文件列表 ======
     try:
