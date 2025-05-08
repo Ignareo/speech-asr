@@ -1,0 +1,9 @@
+# 核心依赖
+funasr>=1.2.6
+numpy>=1.21.0
+PyYAML>=6.0
+tqdm>=4.65.0
+colorama>=0.4.6; platform_system=="Windows"  # Windows平台下的颜色支持
+
+# 可选依赖
+# sentence-transformers>=2.2.2  # 如果需要语义搜索功能 

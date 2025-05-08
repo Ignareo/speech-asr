@@ -4,7 +4,19 @@
 
 2025.5.6完成初版
 
-后续改进：联用SenseVoice和Paraformer
+后续改进：
+- 联用SenseVoice和Paraformer
+
+```bash
+I want to add a manipulation to uss SenseVoiceSmall and Paraformer together, then output them into the same txt, with the format:
+
+========SenseVoiceSmall==========
+<SenseVoiceSmall Output>
+
+===========Paraformer==============
+<Paraformer Output>
+```
+
 
 ---
 
@@ -406,5 +418,187 @@ https://github.com/modelscope/FunASR/issues/2273
 
 这些改动使得Whisper模型可以高效处理长音频，大大提高了处理速度，同时保持了识别质量。我们没有修改FunASR库的源代码，而是通过补丁的方式在你的项目中实现了这些优化，确保了代码的兼容性和可维护性。
 
+## 🖥️ 终端输出优化
+
+本项目对命令行终端的输出进行了全面优化，使识别过程更加直观、友好。以下是主要改进：
+
+### 1. 问题识别
+
+在运行ASR时，终端输出存在以下问题：
+- 重复的进度条信息（每个音频段显示两次相同的进度条）
+- 缺乏整体处理进度显示
+- 模型加载过程冗长且难以阅读
+- 配置信息分散且不突出
+
+### 2. 改进方案
+
+我们实施了以下优化措施：
+
+#### 2.1 彩色输出支持
+
+为提高可读性，添加了颜色支持系统：
+
+```python
+# utils/logger.py
+class Colors:
+    RESET = '\033[0m'
+    BOLD = '\033[1m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    # ...其他颜色定义
+
+class ColoredFormatter(logging.Formatter):
+    """自定义日志格式化器，支持彩色输出"""
+    
+    FORMATS = {
+        logging.INFO: '%(asctime)s - ' + Colors.GREEN + '%(levelname)s' + Colors.RESET + ' - %(message)s',
+        logging.WARNING: '%(asctime)s - ' + Colors.YELLOW + '%(levelname)s' + Colors.RESET + ' - %(message)s',
+        logging.ERROR: '%(asctime)s - ' + Colors.RED + '%(levelname)s' + Colors.RESET + ' - %(message)s',
+        # ...其他日志级别格式
+    }
+```
+
+同时添加了Windows平台支持：
+
+```python
+# 在Windows平台上启用ANSI颜色支持
+if platform.system() == 'Windows':
+    try:
+        import colorama
+        colorama.init()
+    except ImportError:
+        # 尝试使用Windows API启用ANSI
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+        except:
+            pass
+```
+
+#### 2.2 配置摘要显示
+
+在程序开始时，添加了清晰的配置摘要显示：
+
+```python
+def print_config_summary(input_path, output_dir, language, model_type, time_format, rich, use_postprocess):
+    """打印配置摘要，提高可读性"""
+    
+    # 准备一个横线分隔符
+    separator = "=" * 60
+    
+    # 配置标题与内容
+    title = f"{Colors.BOLD}{Colors.CYAN}🔷 ASR配置摘要{Colors.RESET}"
+    model_info = f"{Colors.BOLD}模型类型:{Colors.RESET} {model_type}"
+    lang_info = f"{Colors.BOLD}语言:{Colors.RESET} {language}"
+    # ...其他配置信息
+    
+    # 打印摘要
+    print(separator)
+    print(title)
+    print(model_info)
+    # ...打印其他配置信息
+    print(separator)
+```
+
+#### 2.3 整体进度显示
+
+添加了总体进度条，显示已处理文件数/总文件数：
+
+```python
+def process_audio_files(...):
+    # 创建进度条以显示总体处理进度
+    pbar = tqdm(total=total_files, 
+                desc=f"{Colors.BOLD}{Colors.BLUE}总进度{Colors.RESET}", 
+                unit="文件", position=0, leave=True, 
+                bar_format="{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]")
+    
+    start_time = time.time()
+    
+    for idx, audio in enumerate(audio_files):
+        # 更新进度条描述，显示当前处理的文件
+        pbar.set_description(f"{Colors.BOLD}{Colors.BLUE}总进度{Colors.RESET} - 处理 {os.path.basename(audio)}")
+        
+        # ...处理音频文件
+        
+        # 更新进度条
+        pbar.update(1)
+    
+    # 关闭进度条
+    pbar.close()
+    
+    # 显示总耗时
+    total_time = time.time() - start_time
+    logging.info(f"{Colors.BOLD}{Colors.GREEN}🎉 全部处理完成! 总耗时: {total_time:.2f}秒{Colors.RESET}")
+```
+
+#### 2.4 控制FunASR进度条
+
+为避免重复的进度条，修改了与FunASR的交互方式：
+
+```python
+def run_model(self, audio_input, language="auto", batch_size_s=60, disable_pbar=None, **kwargs):
+    """执行推理"""
+    # 合并所有参数
+    params = {
+        "input": audio_input,
+        "use_itn": True,
+        "language": language,
+        "batch_size_s": batch_size_s,
+        "merge_length_s": 15,
+    }
+    
+    # 如果指定了disable_pbar，添加到参数中
+    if disable_pbar is not None:
+        params["disable_pbar"] = disable_pbar
+        
+    # 添加其他参数
+    params.update(kwargs)
+        
+    result = self.model.generate(**params)
+    return result
+```
+
+同时添加了命令行参数以控制详细程度：
+
+```python
+parser.add_argument("--quiet", action="store_true", help="静默模式，隐藏FunASR进度条")
+parser.add_argument("--verbose", action="store_true", help="显示详细输出，包括FunASR进度条")
+```
+
+### 3. 优化效果
+
+优化后的终端输出具有以下特点：
+
+- **更清晰的信息层次**：通过颜色和格式区分不同类型的信息
+- **精简的进度显示**：去除重复进度条，仅保留有效信息
+- **总体进度可视化**：清晰展示整体处理进度和预计剩余时间
+- **个性化控制**：用户可通过命令行参数控制输出详细程度
+- **Windows兼容**：自动检测并启用Windows终端的颜色支持
+
+### 4. 用法示例
+
+使用彩色终端输出（默认）：
+```bash
+python main.py --input example/zh.mp3
+```
+
+使用静默模式（隐藏FunASR进度条）：
+```bash
+python main.py --input example/zh.mp3 --quiet
+```
+
+禁用彩色输出：
+```bash
+python main.py --input example/zh.mp3 --no_color
+```
+
+显示详细输出，包括FunASR进度条：
+```bash
+python main.py --input example/zh.mp3 --verbose
+```
 
 ## 结束
