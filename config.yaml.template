@@ -1,0 +1,28 @@
+# 模型路径配置模板
+# 请将此文件复制为 config.yaml，并修改为你的本地模型路径
+
+# SenseVoice 模型路径 (用于高速识别、情感和事件检测)
+# ModelScope: iic/SenseVoiceSmall
+SenseVoice_path: D:\path\to\your\SenseVoiceSmall
+
+# Paraformer 模型路径 (用于获取时间戳和说话人分离)
+# ModelScope: iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+Paraformer_path: D:\path\to\your\speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+
+# VAD 模型路径 (语音活动检测，用于切分音频)
+# ModelScope: iic/speech_fsmn_vad_zh-cn-16k-common-pytorch
+vad_model_path: D:\path\to\your\speech_fsmn_vad_zh-cn-16k-common-pytorch
+
+# Punc 模型路径 (标点符号预测)
+# ModelScope: iic/punc_ct-transformer_cn-en-common-vocab471067-large
+punc_model_path: D:\path\to\your\punc_ct-transformer_cn-en-common-vocab471067-large
+
+# SPK 模型路径 (说话人分离)
+# ModelScope: iic/speech_campplus_sv_zh-cn_16k-common
+spk_model_path: D:\path\to\your\speech_campplus_sv_zh-cn_16k-common
+
+# 运行设备: "cpu", "cuda", "cuda:0" 等
+device: cpu
+
+# 是否禁用 FunASR 的自动更新检查
+disable_update: true

@@ -30,49 +30,92 @@ speech-asr/
 
 ## 🧠 功能亮点
 
-- ✅ 多语言识别：支持中文、英文、粤语、日语、韩语等
-- ✅ 支持语音事件识别（笑声、背景音乐、掌声等）
-- ✅ 支持情感识别（高兴、悲伤、愤怒、中性等）
-- ✅ Web UI 可视化 + 下载识别结果
-- ✅ CLI 批量处理本地音频文件
-- ✅ 自动命名输出文件（如 `audio.mp3` → `audio_asr.txt`）
+- ✅ **多语言识别**：支持中文、英文、粤语、日语、韩语等多种语言。
+- ✅ **多功能集成**：
+  - **语音事件检测 (SED)**：识别笑声、背景音乐、掌声等非语音事件。
+  - **情感识别 (ER)**：分析话语中的情感色彩（高兴、悲伤、愤怒等）。
+  - **时间戳与说话人分离**：精确定位每句话的时间，并区分不同的说话人（依赖 `Paraformer` 模型）。
+- ✅ **双模式交互**：
+  - **Web UI**：提供图形化界面，支持实时录音、文件上传、结果可视化和下载。
+  - **CLI**：支持命令行批量处理本地音频文件，适合自动化流程。
+- ✅ **智能输出**：自动为识别结果生成结构化、易于阅读的文本，并可自动命名输出文件。
 
 ---
 
-## 模型介绍
+## 🛠️ 环境准备与安装
 
+### 1. 安装依赖
 
-### 对比
+请确保你已安装 Python 3.8 或更高版本，然后运行以下命令安装核心依赖：
 
-以下是不同模型的性能对比（音频长度：210秒/3分30秒）：
+```bash
+pip install funasr gradio numpy torchaudio librosa pydub colorama
+```
 
-| 模型 | 处理时间 | 特点 |
-|------|----------|------|
-| SenseVoiceSmall | 14秒 | 速度快，支持情感识别和事件检测 |
-| Paraformer | - | 支持时间戳，适合长音频 |
-| SenseVoiceSmall+Paraformer（联用） | 113.52秒 | 综合两种模型优势，输出更全面 |
+### 2. 准备模型与配置
 
-### SenseVoiceSmall
+本项目依赖的 ASR 模型需要手动下载并配置。
 
+#### a. 从何处下载模型？
 
-2h54m上课录屏：878.79秒
+所有模型均来自 [ModelScope](https://modelscope.cn/models) 社区。你可以通过模型 ID 找到它们：
 
+| 模型类型 | ModelScope ID | 功能 |
+| :--- | :--- | :--- |
+| **SenseVoice** | `iic/SenseVoiceSmall` | 核心识别、情感、事件检测 |
+| **Paraformer** | `iic/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch` | 时间戳、说话人分离 |
+| **VAD** | `iic/speech_fsmn_vad_zh-cn-16k-common-pytorch` | 语音活动检测 |
+| **Punc** | `iic/punc_ct-transformer_cn-en-common-vocab471067-large` | 标点符号预测 |
+| **SPK** | `iic/speech_campplus_sv_zh-cn_16k-common` | 说话人识别 |
 
-### Paraformer
+#### b. 如何下载模型？
 
+**推荐方式：使用 Git Clone**
 
-HF上的[funasr/paraformer-zh](https://huggingface.co/funasr/paraformer-zh)没有带时间戳
+这种方式速度更快，且能更好地控制文件。
 
-### Whisper
+1.  **安装 Git LFS**：如果未安装，请先安装 [Git LFS](https://git-lfs.github.com/)。
+2.  **克隆模型仓库**：以 `SenseVoice` 为例：
+    ```bash
+    # 1. 先克隆仓库结构，跳过大文件
+    GIT_LFS_SKIP_SMUDGE=1 git clone https://modelscope.cn/iic/SenseVoiceSmall.git
 
-Whisper-large-v3-turbo（1.5GB），包含约15亿参数
+    # 2. 进入目录，拉取大文件
+    cd SenseVoiceSmall
+    git lfs pull
+    ```
+    对其他需要的模型重复此操作。
 
-使用的是阿里团队修改后的[Whisper-large-v3-turbo 魔塔](https://www.modelscope.cn/models/iic/Whisper-large-v3-turbo/files)，参数用`pt`保存。
-原始的是[Whisper-large-v3-turbo HF](https://huggingface.co/openai/whisper-large-v3-turbo)，使用`safetensors`保存参数。
+**备选方式：使用 ModelScope Library**
+
+你也可以使用 `modelscope` 提供的命令行工具下载。
+
+```bash
+# 设置模型下载的根目录 (可选，默认为 ~/.cache/modelscope)
+# export MODELSCOPE_CACHE=/path/to/your/model/directory
+# 在 Windows PowerShell 中:
+# $env:MODELSCOPE_CACHE="D:\path\to\your\model\directory"
+
+# 下载模型
+modelscope download iic/SenseVoiceSmall
+```
+
+#### c. 如何配置路径？
+
+1.  **创建配置文件**：将项目中的 `config.yaml.template` 文件复制一份，并重命名为 `config.yaml`。
+2.  **修改路径**：打开 `config.yaml`，将每个模型路径修改为你本地存放的**绝对路径**。
+
+    ```yaml
+    # 示例 config.yaml
+    SenseVoice_path: D:\path\to\your\models\SenseVoiceSmall
+    Paraformer_path: D:\path\to\your\models\speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch
+    # ... 其他模型路径
+    device: cpu # 如果有NVIDIA GPU，可以改为 "cuda"
+    ```
 
 ---
 
-## 🛠️ 使用方式
+## � 使用方式
 
 ### 方式一：命令行批量识别（CLI）
 
@@ -99,7 +142,7 @@ LOCAL_INPUT_PATH = r"D:\Donwload\微信录音.aac"
 | `--model`      | 模型类型（SenseVoice/Paraformer/Both）    |
 
 识别结果会自动保存为 `.txt` 文件，文件名格式为：
-- 单模型：`原始文件名_模型名称.txt`
+- `原始文件名_模型名称.txt`
 - 双模型：`原始文件名_SenseVoiceSmall+Paraformer.txt`（包含两个模型的识别结果）
 
 ---
@@ -114,8 +157,79 @@ python webui.py
 
 打开浏览器访问：[http://127.0.0.1:7860](http://127.0.0.1:7860)
 
+---
 
-## 📦 模块功能说明
+## 🧩 如何拓展与自定义
+
+### 1. 添加新模型
+
+如果你想集成其他 `FunASR` 支持的模型（例如，一个特定语言的 Paraformer 模型），可以按以下步骤操作：
+
+1.  **下载新模型**：
+    - 从 ModelScope 或 Hugging Face 下载模型文件。
+
+2.  **更新配置文件**：
+    - 在 `config.yaml` 中为新模型添加一个路径条目，例如：
+      ```yaml
+      MyNewModel_path: D:\path\to\your\new_model
+      ```
+
+3.  **修改 ASR 引擎**：
+    - 打开 `asr_engine.py` 文件，在 `_load_model` 方法中添加一个新的分支来加载你的模型。
+      ```python
+      # asr_engine.py -> _load_model()
+      
+      # ...
+      elif self.model_type == "MyNewModel":
+          logging.debug(f"加载 MyNewModel 模型，路径: {self.config['MyNewModel_path']}")
+          model = AutoModel(
+              model=self.config["MyNewModel_path"],
+              vad_model=self.config["vad_model_path"],
+              # ... 根据需要配置其他参数
+          )
+      # ...
+      ```
+
+4.  **更新命令行接口**：
+    - 在 `main.py` 中，将新模型的名称添加到 `model` 参数的 `choices` 列表中。
+      ```python
+      # main.py
+      parser.add_argument(
+          "--model", 
+          type=str, 
+          default="SenseVoice", 
+          choices=["SenseVoice", "Paraformer", "Both", "MyNewModel"], # 在这里添加
+          help="模型类型"
+      )
+      ```
+
+### 2. 自定义后处理
+
+不同模型可能需要不同的后处理逻辑（例如，提取特定信息、格式化时间戳等）。
+
+- 在 `asr_engine.py` 中，你可以为新模型创建一个专门的后处理函数，类似于 `postprocess_Paraformer`。
+- 在 `postprocess` 方法中添加调用逻辑，根据 `self.model_type` 选择对应的后处理函数。
+
+```python
+# asr_engine.py
+
+# ...
+def postprocess(self, result, ...):
+    # ...
+    if self.model_type == "Paraformer":
+        return self.postprocess_Paraformer(...)
+    elif self.model_type == "MyNewModel":
+        return self.postprocess_MyNewModel(...) # 你需要实现这个函数
+    else:
+        return self.postprocess_general(...)
+
+def postprocess_MyNewModel(self, result):
+    # 在这里实现你的后处理逻辑
+    # ...
+    return "处理后的文本"
+```
+
+---
 
 ### `asr_engine.py`
 
