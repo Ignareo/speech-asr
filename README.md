@@ -55,7 +55,7 @@ speech-asr/
 ### SenseVoiceSmall
 
 
-
+2h54m上课录屏：878.79秒
 
 
 ### Paraformer
@@ -84,6 +84,13 @@ python main.py --input example/ --lang auto
 python main.py --input example/zh.mp3 --model Both  # 同时使用SenseVoiceSmall和Paraformer
 ```
 
+在文件下创建local_config.py，指定音频路径（本地配置文件 - 不会被git追踪）：
+
+```python
+# local_config.py
+LOCAL_INPUT_PATH = r"D:\Donwload\微信录音.aac"
+```
+
 | 参数           | 描述                                      |
 | -------------- | ----------------------------------------- |
 | `--input`      | 音频文件或目录路径                        |
@@ -107,16 +114,6 @@ python webui.py
 
 打开浏览器访问：[http://127.0.0.1:7860](http://127.0.0.1:7860)
 
-#### 特性说明：
-
-- **2025.5.5存在问题：英文会失去空格（raw result正常，format后有问题）**
-
-- 🎤 支持麦克风录音识别
-- 📂 支持上传 `.mp3`, `.wav`, `.aac` 等常见格式音频
-- 🌍 支持语言选择（auto/zh/en/yue/ja/ko）
-- 📝 识别结果带表情符号（😊, 👏, 🎼 等）
-
----
 
 ## 📦 模块功能说明
 
@@ -599,5 +596,3 @@ python main.py --input example/zh.mp3 --no_color
 ```bash
 python main.py --input example/zh.mp3 --verbose
 ```
-
-## 结束

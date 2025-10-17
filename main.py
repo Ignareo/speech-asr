@@ -216,7 +216,8 @@ def main():
     print_config_summary(
         input_path=input_path,
         output_dir=output_dir,
-        language=language,
+        # language=language,
+        language="en",
         model_type=model_type,
         time_format=time_format,
         rich=rich,
